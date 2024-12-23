@@ -23,6 +23,7 @@ return new class extends Migration
             $table->integer('status_pembayaran');
             $table->integer('biaya_admin')->nullable();
             $table->integer('total');
+            $table->integer('is_inv')->nullable();
             $table->timestamps();
         });
     }

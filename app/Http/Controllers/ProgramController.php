@@ -24,13 +24,16 @@ class ProgramController extends Controller
         return response()->json($program, 201);
     }
 
-    public function show(Program $program)
+    public function show($id)
     {
+        $program = Program::findOrFail($id);
         return response()->json($program);
     }
 
-    public function update(Request $request, Program $program)
+    public function update(Request $request, $id)
     {
+        $program = Program::findOrFail($id);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'is_active' => 'nullable|boolean',
@@ -38,13 +41,16 @@ class ProgramController extends Controller
 
         $program->update($validated);
 
-        return response()->json($program);
+        return response()->json($program, 200);
     }
 
-    public function destroy(Program $program)
+
+    public function destroy($id)
     {
+        $program = Program::findOrFail($id);
+
         $program->delete();
 
-        return response()->json(['message' => 'Program deleted']);
+        return response()->json(['message' => 'Program deleted'], 200);
     }
 }

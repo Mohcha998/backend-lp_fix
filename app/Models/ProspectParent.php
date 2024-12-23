@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProspectParent extends Model
 {
+    protected $primaryKey = 'id';
+
     use HasFactory;
 
     protected $fillable = [
@@ -16,10 +18,13 @@ class ProspectParent extends Model
         'source',
         'id_cabang',
         'id_program',
-        'invoice_sp',
+        'is_sp',
+        'invoice_prg',
         'call',
         'tgl_checkin',
         'invitional_code',
+        'is_father',
+        'is_mother',
     ];
 
     public function branch()
@@ -32,8 +37,16 @@ class ProspectParent extends Model
         return $this->belongsTo(Program::class, 'id_program');
     }
 
-    public function paymentSp()
+    public function users()
     {
-        return $this->belongsTo(Payment_sps::class, 'invoice_sp');
+        return $this->hasMany(User::class, 'parent_id');
+    }
+    public function parents()
+    {
+        return $this->hasMany(Parents::class, 'id_parent', 'id');
+    }
+    public function invite()
+    {
+        return $this->belongsTo(InvitonalCode::class, 'inv_id');
     }
 }

@@ -5,13 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Branch extends Model
+class Kelas extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'id_schedule',
+        'id_coach',
         'name',
-        'kota',
-        'kode_cabang',
+        'day',
+        'start_time',
+        'end_time',
     ];
 }

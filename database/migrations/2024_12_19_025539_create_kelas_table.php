@@ -11,13 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('invitonal_codes', function (Blueprint $table) {
+        Schema::create('kelas', function (Blueprint $table) {
             $table->id();
-            $table->integer('id_cabang')->constrained('branches');
-            $table->string('voucher_code');
-            $table->integer('qty')->nullable();
-            $table->boolean('status_voc')->default(false);
-            $table->integer('type')->nullable();
+            $table->integer('id_schedule')->constrained('schedule_prgs');
+            $table->integer('id_coach');
+            $table->string('name');
+            $table->date('day');
+            $table->time('start_time');
+            $table->time('end_time');
             $table->timestamps();
         });
     }
@@ -27,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('invitonal_codes');
+        Schema::dropIfExists('kelas');
     }
 };

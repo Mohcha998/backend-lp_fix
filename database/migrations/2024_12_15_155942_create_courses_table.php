@@ -11,13 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('invitonal_codes', function (Blueprint $table) {
+        Schema::create('courses', function (Blueprint $table) {
             $table->id();
-            $table->integer('id_cabang')->constrained('branches');
-            $table->string('voucher_code');
-            $table->integer('qty')->nullable();
-            $table->boolean('status_voc')->default(false);
-            $table->integer('type')->nullable();
+            $table->string('name');
+            $table->integer('course_type')->nullable();
+            $table->foreignId('id_program')->constrained('programs');
+            $table->integer('price')->nullable();
+            $table->json('schedule');
             $table->timestamps();
         });
     }
@@ -27,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('invitonal_codes');
+        Schema::dropIfExists('courses');
     }
 };

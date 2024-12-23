@@ -9,16 +9,24 @@ class ProspectParentController extends Controller
 {
     public function index()
     {
-        $prospects = ProspectParent::with(['branch', 'program'])->get();
+        $prospects = ProspectParent::select(
+            'prospect_parents.*',
+            'branches.name as branch_name',
+            'programs.name as program_name',
+            'payment__sps.status_pembayaran as status'
+        )
+            ->leftJoin('branches', 'prospect_parents.id_cabang', '=', 'branches.id')
+            ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')
+            ->leftJoin('payment_sps', 'prospect_parents.id', '=', 'payment_sps.id_parent')
+            ->get();
 
         return response()->json($prospects, 200);
     }
 
-    public function show(ProspectParent $prospectParent)
+    public function show($id)
     {
-        $prospect = $prospectParent->load(['branch', 'program']);
-
-        return response()->json($prospect, 200);
+        $prospect = ProspectParent::findOrFail($id);
+        return response()->json($prospect);
     }
 
     public function store(Request $request)
@@ -30,7 +38,6 @@ class ProspectParentController extends Controller
             'source' => 'nullable|string|max:255',
             'id_cabang' => 'nullable|exists:branches,id',
             'id_program' => 'nullable|exists:programs,id',
-            'invoice_sp' => 'nullable|exists:payment_sp,id',
             'call' => 'nullable|integer|min:0',
             'tgl_checkin' => 'nullable|date',
             'invitional_code' => 'nullable|string|max:255',
@@ -41,8 +48,10 @@ class ProspectParentController extends Controller
         return response()->json($prospect, 201);
     }
 
-    public function update(Request $request, ProspectParent $prospectParent)
+    public function update(Request $request, $id)
     {
+        $prospectParent = ProspectParent::findOrFail($id);
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|email|unique:prospect_parents,email,' . $prospectParent->id,
@@ -50,7 +59,6 @@ class ProspectParentController extends Controller
             'source' => 'nullable|string|max:255',
             'id_cabang' => 'nullable|exists:branches,id',
             'id_program' => 'nullable|exists:programs,id',
-            'invoice_sp' => 'nullable|exists:payment_sp,id',
             'call' => 'nullable|integer|min:0',
             'tgl_checkin' => 'nullable|date',
             'invitional_code' => 'nullable|string|max:255',
@@ -61,8 +69,11 @@ class ProspectParentController extends Controller
         return response()->json($prospectParent, 200);
     }
 
-    public function destroy(ProspectParent $prospectParent)
+
+    public function destroy($id)
     {
+        $prospectParent = ProspectParent::findOrFail($id);
+
         $prospectParent->delete();
 
         return response()->json(['message' => 'Prospect parent deleted successfully'], 200);

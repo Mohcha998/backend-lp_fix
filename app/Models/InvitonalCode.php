@@ -11,6 +11,15 @@ class InvitonalCode extends Model
 
     protected $fillable = [
         'voucher_code',
-        'status_code'
+        'id_cabang',
+        'status_code',
+        'qty',
+        'type',
+        'diskon'
     ];
+
+    public function parents()
+    {
+        return $this->hasMany(ProspectParent::class, 'inv_id', 'id');
+    }
 }

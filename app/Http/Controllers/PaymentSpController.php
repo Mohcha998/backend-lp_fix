@@ -24,6 +24,8 @@ class PaymentSpController extends Controller
                 'id_parent' => 'required|exists:prospect_parents,id',
                 'total' => 'required|integer|min:1',
                 'payer_email' => 'required|email',
+                'payment_type' => 'required|integer|min:1',
+                'is_inv' => 'nullable|integer|min:1',
                 'description' => 'required|string|max:255',
             ]);
 
@@ -37,6 +39,7 @@ class PaymentSpController extends Controller
             $order->no_invoice = 'MREVID-' . now()->format('Ymd') . str_pad($nextId, 5, '0', STR_PAD_LEFT);
             $order->total = $validated['total'];
             $order->payer_email = $validated['payer_email'];
+            $order->payment_type = $validated['payment_type'];
             $order->description = $validated['description'];
 
             $createInvoice = new CreateInvoiceRequest([
@@ -57,6 +60,7 @@ class PaymentSpController extends Controller
             return response()->json([
                 'message' => 'Invoice created successfully',
                 'checkout_link' => $order->link_pembayaran,
+                'no_invoice' => $order->no_invoice,
             ]);
         } catch (\Throwable $th) {
             return response()->json([
@@ -166,5 +170,25 @@ class PaymentSpController extends Controller
         $paymentSp->delete();
 
         return response()->json(['message' => 'PaymentSp deleted successfully'], 200);
+    }
+
+    public function payment_details($paymentId)
+    {
+        $payment = Payment_Sps::where('no_invoice', $paymentId)->first();
+
+        if (!$payment) {
+            return response()->json(['error' => 'Payment not found'], 404);
+        }
+
+        return response()->json([
+            'no_invoice' => $payment->no_invoice,
+            'no_pemesanan' => $payment->no_pemesanan ?? 'N/A',
+            'payer_email' => $payment->payer_email ?? 'N/A',
+            'description' => $payment->description ?? 'N/A',
+            'date_paid' => $payment->date_paid ?? 'N/A',
+            'status_pembayaran' => $payment->status_pembayaran == 1 ? 'Paid' : 'Pending',
+            'biaya_admin' => $payment->biaya_admin ? number_format($payment->biaya_admin, 0, ',', '.') : '0',
+            'total' => number_format($payment->total, 0, ',', '.'),
+        ]);
     }
 }

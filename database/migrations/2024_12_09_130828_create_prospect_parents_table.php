@@ -19,10 +19,11 @@ return new class extends Migration
             $table->foreignId('id_program')->nullable()->constrained('programs')->onDelete('set null')->change();
             $table->bigInteger('phone')->nullable()->unique();
             $table->string('source')->nullable();
-            $table->foreignId('invoice_sp')->nullable()->constrained('payment_sps')->onDelete('set null')->change();
+            $table->foreignId('invoice_sp')->nullable()->constrained('payment__sps')->onDelete('set null')->change();
             $table->foreignId('invoice_prg')->nullable()->constrained('pembayaran_programs')->onDelete('set null')->change();
             $table->integer('call')->default(0);
             $table->date('tgl_checkin')->nullable();
+            $table->integer('inv_id')->constrained('invitonal_codes')->nullable();
             $table->string('invitional_code')->nullable();
             $table->timestamps();
         });

@@ -13,4 +13,14 @@ class Program extends Model
         'name',
         'is_active',
     ];
+
+    public function prospectParents()
+    {
+        return $this->hasMany(ProspectParent::class, 'id_program');
+    }
+
+    public function courses()
+    {
+        return $this->hasMany(Course::class);
+    }
 }
