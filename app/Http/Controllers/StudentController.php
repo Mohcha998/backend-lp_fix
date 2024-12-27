@@ -44,7 +44,6 @@ class StudentController extends Controller
 
         Log::info('Request data:', $request->all());
 
-        // Menangani boolean dan nullable
         $validatedData = $request->validate([
             'name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',

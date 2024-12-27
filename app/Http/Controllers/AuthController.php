@@ -67,7 +67,7 @@ class AuthController extends Controller
                 'name' => $request->name,
                 'phone' => $request->phone,
                 'email' => $request->email,
-                'id_program' => 1,
+                'id_program' => $request->id_program,
                 'is_sp' => 0,
             ]);
         }

@@ -35,9 +35,18 @@ use App\Http\Controllers\KelasController;
 //     return $request->user();
 // });
 
+//Dashboard MRE View
+Route::get('prospect', [ProspectParentController::class, 'index']);
+Route::get('spcall', [ProspectParentController::class, 'callSP']);
+Route::get('prgcall', [ProspectParentController::class, 'callPrg']);
+Route::get('count_prospect', [ProspectParentController::class, 'countProspectsWithPaymentTypeOne']);
+Route::get('count_pending', [ProspectParentController::class, 'countProspectsPending']);
+Route::get('count_expired', [ProspectParentController::class, 'countProspectsExpired']);
+Route::get('count_paid', [ProspectParentController::class, 'countProspectsPaid']);
+Route::put('/prospects/checkin/{id}', [ProspectParentController::class, 'checkin']);
+
 
 //Prospect Parents Controller
-Route::get('prospect', [ProspectParentController::class, 'index']);
 Route::post('prospect', [ProspectParentController::class, 'store']);
 Route::get('prospect/{id}', [ProspectParentController::class, 'show']);
 Route::put('prospect/{id}', [ProspectParentController::class, 'update']);

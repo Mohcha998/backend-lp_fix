@@ -56,7 +56,7 @@ class HandleSubmitController extends Controller
                 'source' => $validated['source'],
                 'id_cabang' => $validated['id_cabang'],
                 'id_program' => $validated['id_program'],
-                'is_sp' => 1,
+                'is_sp' => $validated['invitional_code'] ? 0 : 1,
                 'invitional_code' => $validated['invitional_code'] ?? null
             ]);
 
@@ -134,7 +134,6 @@ class HandleSubmitController extends Controller
                 $invoiceLink
             ], $messageText);
 
-            // Send WhatsApp message
             $sendMessageRequest = new Request([
                 'phone' => $validated['phone'],
                 'message' => $messageText,
@@ -149,8 +148,8 @@ class HandleSubmitController extends Controller
             // Return JSON response
             return response()->json([
                 'message' => 'Form submitted successfully',
-                'redirect' => '/sp-ps/thanks', // Redirect to 'thanks' page
-                'open_payment_link' => $invoiceLink // Provide the Xendit payment link
+                'redirect' => '/sp-ps/thanks',
+                'invoice_link' => $invoiceLink
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => 'An error occurred', 'message' => $e->getMessage()], 500);
