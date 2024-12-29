@@ -62,15 +62,42 @@ class ProspectParentController extends Controller
             ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')
             ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')
             ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
-            ->where(function ($query) {
-                $query->where(function ($subQuery) {
-                    $subQuery->where('payment__sps.payment_type', 1)
-                        ->whereNotNull('prospect_parents.tgl_checkin');
-                })->orWhere(function ($subQuery) {
-                    $subQuery->where('payment__sps.payment_type', 2)
-                        ->where('payment__sps.status_pembayaran', [0, 2]);
-                });
+            ->where('payment__sps.payment_type', 1)
+            ->whereNotNull('prospect_parents.tgl_checkin')
+            ->whereNull('users.id')
+            ->whereDoesntHave('payments', function ($query) {
+                $query->where('payment__sps.payment_type', 2);
             })
+            ->distinct()
+            ->orderBy('prospect_parents.id', 'asc')
+            ->get();
+
+        return response()->json($prospects, 200);
+    }
+
+    public function callInterest()
+    {
+        $prospects = ProspectParent::select(
+            'prospect_parents.*',
+            'branches.name as branch_name',
+            'programs.name as program_name',
+            'payment__sps.status_pembayaran as status',
+            'payment__sps.id as id_payment',
+            'payment__sps.course as course',
+            'payment__sps.num_children as children',
+            'payment__sps.total as total',
+            'payment__sps.status_pembayaran as status_pembayaran',
+            'users.name as user_name',
+            'users.email as user_email',
+            'users.id as user_id'
+        )
+            ->leftJoin('branches', 'prospect_parents.id_cabang', '=', 'branches.id')
+            ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')
+            ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')
+            ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->leftJoin('students', 'students.user_id', '=', 'users.id')
+            ->where('payment__sps.payment_type', 2)
+            ->whereNotNull('prospect_parents.tgl_checkin')
             ->distinct()
             ->orderBy('prospect_parents.id', 'asc')
             ->get();
@@ -154,6 +181,9 @@ class ProspectParentController extends Controller
             'id_cabang' => 'nullable|exists:branches,id',
             'id_program' => 'nullable|exists:programs,id',
             'call' => 'nullable|integer|min:0',
+            'call2' => 'nullable|integer|min:0',
+            'call3' => 'nullable|integer|min:0',
+            'call4' => 'nullable|integer|min:0',
             'tgl_checkin' => 'nullable|date',
             'invitional_code' => 'nullable|string|max:255',
         ]);
@@ -175,6 +205,9 @@ class ProspectParentController extends Controller
             'id_cabang' => 'nullable|exists:branches,id',
             'id_program' => 'nullable|exists:programs,id',
             'call' => 'nullable|integer|min:0',
+            'call2' => 'nullable|integer|min:0',
+            'call3' => 'nullable|integer|min:0',
+            'call4' => 'nullable|integer|min:0',
             'tgl_checkin' => 'nullable|date',
             'invitional_code' => 'nullable|string|max:255',
         ]);

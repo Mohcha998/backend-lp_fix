@@ -39,12 +39,15 @@ use App\Http\Controllers\KelasController;
 Route::get('prospect', [ProspectParentController::class, 'index']);
 Route::get('spcall', [ProspectParentController::class, 'callSP']);
 Route::get('prgcall', [ProspectParentController::class, 'callPrg']);
+Route::get('interest-call', [ProspectParentController::class, 'callInterest']);
 Route::get('count_prospect', [ProspectParentController::class, 'countProspectsWithPaymentTypeOne']);
 Route::get('count_pending', [ProspectParentController::class, 'countProspectsPending']);
 Route::get('count_expired', [ProspectParentController::class, 'countProspectsExpired']);
 Route::get('count_paid', [ProspectParentController::class, 'countProspectsPaid']);
 Route::put('/prospects/checkin/{id}', [ProspectParentController::class, 'checkin']);
-
+Route::post('manual', [HandleSubmitController::class, 'handleManualPayment']);
+Route::put('/payment/update', [HandleSubmitController::class, 'handleManualPaymentUpdate']);
+Route::post('parents', [ParentsController::class, 'store']);
 
 //Prospect Parents Controller
 Route::post('prospect', [ProspectParentController::class, 'store']);
@@ -76,6 +79,8 @@ Route::delete('payment-sps/{id}', [PaymentSpController::class, 'destroy']);
 Route::post('create-invoice', [PaymentSpController::class, 'createInvoice'])->name('api.create-invoice');;
 Route::post('xendit-callback', [PaymentSpController::class, 'handleXenditCallback']);
 
+
+
 //Invitonal Controller
 Route::prefix('voucher')->group(function () {
     Route::post('/', [InviteController::class, 'create']);
@@ -102,10 +107,13 @@ Route::post('form-submit', [HandleSubmitController::class, 'handleFormSubmission
 Route::get('courses_date', [CourseController::class, 'get_bydate']);
 Route::get('courses', [CourseController::class, 'index']);
 
+//Auth Controller
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 // Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
+
+//Harus memiliki authorization
 Route::middleware('auth:sanctum')->group(function () {
     //CallApi Controller
     Route::get('/user-parent', [CallApiController::class, 'getUserParentData']);
@@ -116,7 +124,6 @@ Route::middleware('auth:sanctum')->group(function () {
     //Parent Controller
     Route::get('parent-uid', [ParentsController::class, 'getParentsData']);
     Route::get('parents', [ParentsController::class, 'index']);
-    Route::post('parents', [ParentsController::class, 'store']);
     Route::post('sub-parents', [ParentsController::class, 'double_sub']);
     Route::get('parents/{id}', [ParentsController::class, 'show']);
     Route::put('parents/{id}', [ParentsController::class, 'update']);

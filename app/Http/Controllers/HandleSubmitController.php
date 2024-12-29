@@ -14,7 +14,10 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\PaymentSpController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\WhatsAppController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ParentsController;
 use App\Http\Controllers\inviteController;
+use PhpParser\Node\NullableType;
 
 class HandleSubmitController extends Controller
 {
@@ -27,12 +30,16 @@ class HandleSubmitController extends Controller
         MessageController $messageController,
         WhatsAppController $whatsappController,
         PaymentSpController $invoiceController,
-        inviteController $inviteController
+        inviteController $inviteController,
+        AuthController $authController,
+        ParentsController $parentsController
     ) {
         $this->messageController = $messageController;
         $this->whatsappController = $whatsappController;
         $this->invoiceController = $invoiceController;
         $this->inviteController = $inviteController;
+        $this->authController = $authController;
+        $this->parentController = $parentsController;
     }
 
     public function handleFormSubmission(Request $request)
@@ -245,6 +252,312 @@ class HandleSubmitController extends Controller
                 'no_invoice' => $invoiceAll,
                 'redirect' => '/admin/invoice'
             ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'An error occurred', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleManualPayment(Request $request)
+    {
+        $validated = $request->validate([
+            'parent_id' => 'required|integer',
+            'program_id' => 'required|integer',
+            'course' => 'required|in:1,2',
+            'num_children' => 'required|integer|min:1',
+            'voucher_code' => 'nullable|string|max:255',
+            'total' => 'required|numeric|min:1',
+            'payment_status' => 'required|in:0,1',
+            'payment_method' => 'nullable|string',
+        ]);
+
+        $idParent = $validated['parent_id'];
+        $parent = ProspectParent::with('program')->find($idParent);
+
+        if (!$parent) {
+            return response()->json(['error' => 'Parent not found'], 404);
+        }
+
+        $user_id = auth()->id();
+        $emailParent = $parent->email;
+        $nameParent = $parent->name;
+        $phoneParent = $parent->phone;
+
+        try {
+            $selectedProgram = Course::findOrFail($validated['program_id']);
+            $totalAmount = $validated['total'] * $validated['num_children'];
+            $voucherDiscount = 0;
+
+            if ($validated['voucher_code']) {
+                $voucher = InvitonalCode::where('voucher_code', $validated['voucher_code'])
+                    ->where('status_voc', 1)
+                    ->where('type', 2)
+                    ->where('id_cabang', $parent->id_cabang)
+                    ->first();
+
+                if (!$voucher) {
+                    return response()->json(['error' => 'Invalid or expired voucher'], 400);
+                }
+
+                if ($voucher->qty > 0) {
+                    $voucherDiscount = $voucher->diskon;
+                    $totalAmount -= $voucherDiscount;
+                    $voucher->decrement('qty', 1);
+                } else {
+                    return response()->json(['error' => 'Voucher out of stock'], 400);
+                }
+            }
+
+            $lastPayment = Payment_Sps::latest('id')->first();
+            $lastId = $lastPayment ? $lastPayment->id : 0;
+            $nextId = $lastId + 1;
+
+            $payment = Payment_Sps::create([
+                'id_parent' => $idParent,
+                'course' => $validated['course'],
+                'num_children' => $validated['num_children'],
+                'voucher_code' => $validated['voucher_code'],
+                'link_pembayaran' => null,
+                'no_invoice' => 'MREVID-' . now()->format('Ymd') . str_pad($nextId, 5, '0', STR_PAD_LEFT),
+                'no_pemesanan' => 'ORDER' . time(),
+                'date_paid' => now(),
+                'status_pembayaran' => $validated['payment_status'],
+                'payment_type' => 2,
+                'biaya_admin' => 0,
+                'total' => $totalAmount,
+            ]);
+
+            if ($validated['payment_status'] == 0) {
+                return response()->json(['message' => 'Invoice created successfully, but payment is pending'], 200);
+            }
+
+            $users = new Request([
+                'name' => $nameParent,
+                'email' => $emailParent,
+                'phone' => $phoneParent,
+                'parent_id' => $idParent
+            ]);
+
+            $authResponse = $this->authController->register($users);
+            $userData = $authResponse->getData();
+            if (isset($userData->user->id)) {
+                $userID = $userData->user->id;
+            } else {
+                return response()->json(['error' => 'User ID not found'], 400);
+            }
+
+            $parentprg = new Request([
+                'user_id' => $userID,
+                'id_parent' => $idParent,
+                'name' => $nameParent,
+                'email' => $emailParent,
+                'phone' => $phoneParent,
+                'is_father' => 1
+            ]);
+
+            $prgResponse = $this->parentController->store($parentprg);
+            $ParentIDPrg = $prgResponse->getData();
+            if (!empty($ParentIDPrg)) {
+                $ParentPrg = $ParentIDPrg->id;
+            } else {
+                return response()->json(['error' => 'Parent ID not found'], 400);
+            }
+
+            $students = [];
+            for ($i = 0; $i < $validated['num_children']; $i++) {
+                $password = bcrypt(Str::random(8));
+                $student = Student::create([
+                    'id_user_fthr' => $ParentPrg,
+                    'user_id' => $userID,
+                    'id_course' => $validated['course'],
+                    'id_program' => $parent->id_program,
+                    'id_branch' => $parent->id_cabang,
+                    'name' => "Child $i",
+                    'email' => "child{$i}_$emailParent",
+                    'password' => $password,
+                ]);
+                $students[] = $student;
+            }
+
+            $noInvoice = $payment->no_invoice;
+
+            $messageText = "Dear $nameParent,\n"
+                . "This is your Invoice Number $noInvoice\n"
+                . "Your payment for {$validated['num_children']} children has been received.\n"
+                . "Program: {$selectedProgram->name}\n"
+                . "Total Amount: $totalAmount\n"
+                . "Students:\n";
+
+            foreach ($students as $index => $student) {
+                $messageText .= ($index + 1) . ". {$student->name} - {$student->email}\n";
+            }
+
+            $sendMessageRequest = new Request([
+                'phone' => $parent->phone,
+                'message' => $messageText,
+            ]);
+
+            $sendMessageResponse = $this->whatsappController->sendMessage($sendMessageRequest);
+
+            if (!$sendMessageResponse) {
+                return response()->json(['error' => 'Failed to send WhatsApp message'], 500);
+            }
+
+            return response()->json(['message' => 'Payment processed successfully, students created, and message sent'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'An error occurred', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function handleManualPaymentUpdate(Request $request)
+    {
+        $validated = $request->validate([
+            'parent_id' => 'nullable|integer',
+            'program_id' => 'required|integer',
+            'payment_id' => 'nullable|integer',
+            'course' => 'required|in:1,2',
+            'num_children' => 'required|integer|min:1',
+            'voucher_code' => 'nullable|string|max:255',
+            'total' => 'required|numeric|min:1',
+            'payment_status' => 'required|in:0,1',
+            'payment_method' => 'nullable|string',
+        ]);
+
+        $payment = Payment_Sps::find($validated['payment_id']);
+
+        if (!$payment) {
+            return response()->json(['error' => 'Payment not found'], 404);
+        }
+
+        // Fetch the associated parent from the payment object
+        $parent = $payment->parent;
+
+        // Ensure that $parent is not null
+        if (!$parent) {
+            return response()->json(['error' => 'Parent not found'], 404);
+        }
+
+        $emailParent = $parent->email;
+        $nameParent = $parent->name;
+        $phoneParent = $parent->phone;
+
+        if (!$payment) {
+            return response()->json(['error' => 'Payment not found'], 404);
+        }
+
+        try {
+            $selectedProgram = Course::findOrFail($validated['program_id']);
+            $totalAmount = $validated['total'] * $validated['num_children'];
+            $voucherDiscount = 0;
+
+            if ($validated['voucher_code']) {
+                $voucher = InvitonalCode::where('voucher_code', $validated['voucher_code'])
+                    ->where('status_voc', 1)
+                    ->where('type', 2)
+                    ->where('id_cabang', $parent->id_cabang)
+                    ->first();
+
+                if (!$voucher) {
+                    return response()->json(['error' => 'Invalid or expired voucher'], 400);
+                }
+
+                if ($voucher->qty > 0) {
+                    $voucherDiscount = $voucher->diskon;
+                    $totalAmount -= $voucherDiscount;
+                    $voucher->decrement('qty', 1);
+                } else {
+                    return response()->json(['error' => 'Voucher out of stock'], 400);
+                }
+            }
+
+            $payment->update([
+                'id_program' => $validated['program_id'],
+                'course' => $validated['course'],
+                'num_children' => $validated['num_children'],
+                'voucher_code' => $validated['voucher_code'],
+                'status_pembayaran' => $validated['payment_status'],
+                'total' => $totalAmount,
+                'date_paid' => now(),
+            ]);
+
+            if ($validated['payment_status'] == 0) {
+                return response()->json(['message' => 'Invoice updated successfully, but payment is pending'], 200);
+            }
+
+            $users = new Request([
+                'name' => $nameParent,
+                'email' => $emailParent,
+                'phone' => $phoneParent,
+                'parent_id' => $parent->id,
+            ]);
+
+            $authResponse = $this->authController->register($users);
+            $userData = $authResponse->getData();
+
+            if (isset($userData->user->id)) {
+                $userID = $userData->user->id;
+            } else {
+                return response()->json(['error' => 'User ID not found'], 400);
+            }
+
+            $parentprg = new Request([
+                'user_id' => $userID,
+                'id_parent' => $parent->id,
+                'name' => $nameParent,
+                'email' => $emailParent,
+                'phone' => $phoneParent,
+                'is_father' => 1,
+            ]);
+
+            $prgResponse = $this->parentController->store($parentprg);
+            $ParentIDPrg = $prgResponse->getData();
+
+            if (!empty($ParentIDPrg)) {
+                $ParentPrg = $ParentIDPrg->id;
+            } else {
+                return response()->json(['error' => 'Parent ID not found'], 400);
+            }
+
+            $students = [];
+            for ($i = 0; $i < $validated['num_children']; $i++) {
+                $password = bcrypt(Str::random(8));
+                $student = Student::create([
+                    'id_user_fthr' => $ParentPrg,
+                    'user_id' => $userID,
+                    'id_course' => $validated['course'],
+                    'id_program' => $parent->id_program,
+                    'id_branch' => $parent->id_cabang,
+                    'name' => "Child $i",
+                    'email' => "child{$i}_$emailParent",
+                    'password' => $password,
+                ]);
+                $students[] = $student;
+            }
+
+            $noInvoice = $payment->no_invoice;
+
+            $messageText = "Dear $nameParent,\n"
+                . "This is your Invoice Number $noInvoice\n"
+                . "Your payment for {$validated['num_children']} children has been received.\n"
+                . "Program: {$selectedProgram->name}\n"
+                . "Total Amount: $totalAmount\n"
+                . "Students:\n";
+
+            foreach ($students as $index => $student) {
+                $messageText .= ($index + 1) . ". {$student->name} - {$student->email}\n";
+            }
+
+            $sendMessageRequest = new Request([
+                'phone' => $parent->phone,
+                'message' => $messageText,
+            ]);
+
+            $sendMessageResponse = $this->whatsappController->sendMessage($sendMessageRequest);
+
+            if (!$sendMessageResponse) {
+                return response()->json(['error' => 'Failed to send WhatsApp message'], 500);
+            }
+
+            return response()->json(['message' => 'Payment updated successfully, students created, and message sent'], 200);
         } catch (\Exception $e) {
             return response()->json(['error' => 'An error occurred', 'message' => $e->getMessage()], 500);
         }

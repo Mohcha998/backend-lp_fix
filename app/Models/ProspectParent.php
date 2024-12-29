@@ -21,6 +21,9 @@ class ProspectParent extends Model
         'is_sp',
         'invoice_prg',
         'call',
+        'call2',
+        'call3',
+        'call4',
         'tgl_checkin',
         'invitional_code',
         'is_father',
@@ -48,5 +51,9 @@ class ProspectParent extends Model
     public function invite()
     {
         return $this->belongsTo(InvitonalCode::class, 'inv_id');
+    }
+    public function payments()
+    {
+        return $this->hasMany(Payment_Sps::class, 'id_parent');
     }
 }
