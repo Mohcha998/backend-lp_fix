@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProspectParent;
+use App\Models\Student;
 use Illuminate\Http\Request;
 
 class ProspectParentController extends Controller
@@ -84,7 +85,7 @@ class ProspectParentController extends Controller
             'payment__sps.status_pembayaran as status',
             'payment__sps.id as id_payment',
             'payment__sps.course as course',
-            'payment__sps.num_children as children',
+            'payment__sps.num_children as children_count',
             'payment__sps.total as total',
             'payment__sps.status_pembayaran as status_pembayaran',
             'users.name as user_name',
@@ -95,15 +96,20 @@ class ProspectParentController extends Controller
             ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')
             ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')
             ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
-            ->leftJoin('students', 'students.user_id', '=', 'users.id')
             ->where('payment__sps.payment_type', 2)
             ->whereNotNull('prospect_parents.tgl_checkin')
             ->distinct()
             ->orderBy('prospect_parents.id', 'asc')
             ->get();
 
+        foreach ($prospects as $prospect) {
+            $prospect->children = Student::where('user_id', $prospect->user_id)
+                ->get(['id as children', 'name as nama_murid', 'tgl_lahir', 'email as email_murid', 'phone as tlp_murid']);
+        }
+
         return response()->json($prospects, 200);
     }
+
 
 
     public function checkin($id)

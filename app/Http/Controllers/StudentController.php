@@ -9,9 +9,24 @@ use Illuminate\Support\Facades\Log;
 
 class StudentController extends Controller
 {
-    public function __construct()
+
+    public function studentall()
     {
-        $this->middleware('auth');
+        $prospects = Student::select(
+            'students.*',
+            'branches.name as branch_name',
+            'programs.name as program_name',
+            'courses.name as course_name',
+            'kelas.name as kelas_name'
+        )
+            ->leftJoin('branches', 'students.id_branch', '=', 'branches.id')
+            ->leftJoin('programs', 'students.id_program', '=', 'programs.id')
+            ->leftJoin('courses', 'students.id_course', '=', 'courses.id')
+            ->leftJoin('kelas', 'students.id_kelas', '=', 'kelas.id')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        return response()->json($prospects, 200);
     }
 
     public function index()

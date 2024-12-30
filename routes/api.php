@@ -36,6 +36,7 @@ use App\Http\Controllers\KelasController;
 // });
 
 //Dashboard MRE View
+Route::get('/studentsall', [StudentController::class, 'studentall']);
 Route::get('prospect', [ProspectParentController::class, 'index']);
 Route::get('spcall', [ProspectParentController::class, 'callSP']);
 Route::get('prgcall', [ProspectParentController::class, 'callPrg']);
