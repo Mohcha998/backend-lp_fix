@@ -85,7 +85,7 @@ class PaymentSpController extends Controller
                 return response()->json(['error' => 'Payment not found'], 404);
             }
 
-            $biayaAdmin = isset($payload['amount']) ? ($payload['amount'] * 0.02) : 0;
+            $biayaAdmin = isset($payload['amount']) ? ($payload['amount']) : 0;
 
             $payment->update([
                 'status_pembayaran' => $this->mapXenditStatus($payload['status']),
