@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Payment_Sps;
 use App\Models\ProspectParent;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Xendit\Configuration;
@@ -190,5 +192,48 @@ class PaymentSpController extends Controller
             'biaya_admin' => $payment->biaya_admin ? number_format($payment->biaya_admin, 0, ',', '.') : '0',
             'total' => number_format($payment->total, 0, ',', '.'),
         ]);
+    }
+
+    public function payment_last_three_months()
+    {
+        // Current month range
+        $startDate1 = Carbon::now()->startOfMonth()->startOfDay()->toDateTimeString();
+        $endDate1 = Carbon::now()->endOfMonth()->endOfDay()->toDateTimeString();
+
+        // Last month range
+        $startDate2 = Carbon::now()->subMonth()->startOfMonth()->startOfDay()->toDateTimeString();
+        $endDate2 = Carbon::now()->subMonth()->endOfMonth()->endOfDay()->toDateTimeString();
+
+        // Two months ago range
+        $startDate3 = Carbon::now()->subMonths(2)->startOfMonth()->startOfDay()->toDateTimeString();
+        $endDate3 = Carbon::now()->subMonths(2)->endOfMonth()->endOfDay()->toDateTimeString();
+
+        // Query to sum total payments for each of the last three months
+        $payments = DB::table('payment__sps')
+            ->selectRaw('
+            SUM(CASE WHEN date_paid >= ? AND date_paid <= ? THEN total ELSE 0 END) as month_1,
+            SUM(CASE WHEN date_paid >= ? AND date_paid <= ? THEN total ELSE 0 END) as month_2,
+            SUM(CASE WHEN date_paid >= ? AND date_paid <= ? THEN total ELSE 0 END) as month_3
+        ', [$startDate3, $endDate3, $startDate2, $endDate2, $startDate1, $endDate1])
+            ->first();
+
+        $month_1 = $payments->month_1 ?? 0;
+        $month_2 = $payments->month_2 ?? 0;
+        $month_3 = $payments->month_3 ?? 0;
+
+        $labels = [
+            Carbon::now()->subMonths(2)->format('F Y'),
+            Carbon::now()->subMonth()->format('F Y'),
+            Carbon::now()->format('F Y'),
+        ];
+
+        $series = [
+            [$month_1, $month_2, $month_3],
+        ];
+
+        return response()->json([
+            'labels' => $labels,
+            'series' => $series,
+        ], 200);
     }
 }

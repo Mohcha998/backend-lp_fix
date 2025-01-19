@@ -284,7 +284,7 @@ class HandleSubmitController extends Controller
 
         try {
             $selectedProgram = Course::findOrFail($validated['program_id']);
-            $totalAmount = $validated['total'] * $validated['num_children'];
+            $totalAmount = $validated['total'];
             $voucherDiscount = 0;
 
             if ($validated['voucher_code']) {
@@ -446,7 +446,7 @@ class HandleSubmitController extends Controller
 
         try {
             $selectedProgram = Course::findOrFail($validated['program_id']);
-            $totalAmount = $validated['total'] * $validated['num_children'];
+            $totalAmount = $validated['total'];
             $voucherDiscount = 0;
 
             if ($validated['voucher_code']) {

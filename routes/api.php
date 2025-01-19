@@ -63,6 +63,16 @@ Route::post('branches', [BranchController::class, 'store']);
 Route::get('branches/{id}', [BranchController::class, 'show']);
 Route::put('branches/{id}', [BranchController::class, 'update']);
 Route::delete('branches/{id}', [BranchController::class, 'destroy']);
+Route::get('branches_std', [BranchController::class, 'branch_std']);
+Route::get('branches_dat', [BranchController::class, 'branch_total']);
+Route::get('branches_donut', [BranchController::class, 'topThreeBranches']);
+Route::get('branch_rev', [BranchController::class, 'branch_revenue']);
+Route::get('branch_top', [BranchController::class, 'branch_revtop']);
+Route::get('branch_revm', [BranchController::class, 'branch_revenue_month']);
+Route::get('branch_topm', [BranchController::class, 'branch_revtop_month']);
+
+//Students Controller
+Route::get('student_month', [StudentController::class, 'student_last_three_months']);
 
 //Program Controller
 Route::get('programs', [ProgramController::class, 'index']);
@@ -79,7 +89,7 @@ Route::put('payment-sps/{id}', [PaymentSpController::class, 'update']);
 Route::delete('payment-sps/{id}', [PaymentSpController::class, 'destroy']);
 Route::post('create-invoice', [PaymentSpController::class, 'createInvoice'])->name('api.create-invoice');;
 Route::post('xendit-callback', [PaymentSpController::class, 'handleXenditCallback']);
-
+Route::get('payment_month', [PaymentSpController::class, 'payment_last_three_months']);
 
 
 //Invitonal Controller
