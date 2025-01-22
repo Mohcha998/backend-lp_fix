@@ -43,11 +43,13 @@ class ProspectParentController extends Controller
             ->whereNull('tgl_checkin')
             ->where('payment__sps.payment_type', '=', 1)
             ->where('payment__sps.status_pembayaran', '=', 1)
+            ->whereNull('prospect_parents.tgl_checkin')
             ->orderBy('id', 'asc')
             ->get();
 
         return response()->json($prospects, 200);
     }
+
 
     public function callPrg()
     {
@@ -63,8 +65,9 @@ class ProspectParentController extends Controller
             ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')
             ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')
             ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
-            ->where('payment__sps.payment_type', 1)
-            ->whereNotNull('prospect_parents.tgl_checkin')
+            ->where('payment__sps.payment_type', '=', 1)
+            ->where('payment__sps.status_pembayaran', '=', 1 && 'payment__sps.status_pembayaran', '=', 1)
+            // ->whereNull('prospect_parents.tgl_checkin')
             ->whereNull('users.id')
             ->whereDoesntHave('payments', function ($query) {
                 $query->where('payment__sps.payment_type', 2);

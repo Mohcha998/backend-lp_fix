@@ -95,10 +95,11 @@ class HandleSubmitController extends Controller
                     'no_invoice' => 'MREVID-' . now()->format('Ymd') . str_pad($nextId, 5, '0', STR_PAD_LEFT),
                     'no_pemesanan' => 'ORDER' . time(),
                     'date_paid' => now(),
-                    'status_pembayaran' => 1,
+                    'status_pembayaran' => 3,
                     'payment_type' => 1,
                     'biaya_admin' => 0,
                     'total' => 0,
+                    'is_inv' => 1,
                 ];
                 $paymentSp = Payment_Sps::create($paymentData);
 

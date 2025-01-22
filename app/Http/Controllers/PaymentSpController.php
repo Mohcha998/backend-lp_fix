@@ -115,6 +115,8 @@ class PaymentSpController extends Controller
                 return 0;
             case 'EXPIRED':
                 return 2;
+            case 'Free':
+                return 3;
             default:
                 return 0;
         }

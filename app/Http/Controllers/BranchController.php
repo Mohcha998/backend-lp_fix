@@ -110,6 +110,10 @@ class BranchController extends Controller
         )
             ->leftJoin('prospect_parents', 'branches.id', '=', 'prospect_parents.id_cabang')
             ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->whereBetween('payment__sps.created_at', [
+                now()->startOfYear(),
+                now()->endOfYear(),
+            ])
             ->groupBy('branches.id')
             ->orderBy('total_revenue', 'desc')
             ->get();
