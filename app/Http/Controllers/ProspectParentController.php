@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\ProspectParent;
 use App\Models\Student;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ProspectParentController extends Controller
 {
@@ -14,6 +16,7 @@ class ProspectParentController extends Controller
             'prospect_parents.*',
             'branches.name as branch_name',
             'programs.name as program_name',
+            'branches.kode_cabang as cabang',
             'payment__sps.status_pembayaran as status'
         )
             ->leftJoin('branches', 'prospect_parents.id_cabang', '=', 'branches.id')
@@ -34,6 +37,7 @@ class ProspectParentController extends Controller
             'prospect_parents.*',
             'branches.name as branch_name',
             'programs.name as program_name',
+            'branches.kode_cabang as cabang',
             'payment__sps.status_pembayaran as status'
         )
             ->leftJoin('branches', 'prospect_parents.id_cabang', '=', 'branches.id')
@@ -58,6 +62,7 @@ class ProspectParentController extends Controller
             'branches.name as branch_name',
             'programs.name as program_name',
             'payment__sps.status_pembayaran as status',
+            'branches.kode_cabang as cabang',
             'users.name as user_name',
             'users.email as user_email'
         )
@@ -79,6 +84,32 @@ class ProspectParentController extends Controller
         return response()->json($prospects, 200);
     }
 
+    public function callNoSp()
+    {
+        $prospects = ProspectParent::select(
+            'prospect_parents.*',
+            'branches.name as branch_name',
+            'programs.name as program_name',
+            'payment__sps.status_pembayaran as status',
+            'branches.kode_cabang as cabang',
+            'users.name as user_name',
+            'users.email as user_email'
+        )
+            ->leftJoin('branches', 'prospect_parents.id_cabang', '=', 'branches.id')
+            ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')
+            ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')
+            ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.payment_type', '=', 1)
+            ->where('payment__sps.status_pembayaran', '=', 3)
+            // ->whereNull('prospect_parents.tgl_checkin')
+            // ->whereNull('users.id')
+            ->distinct()
+            ->orderBy('prospect_parents.id', 'asc')
+            ->get();
+
+        return response()->json($prospects, 200);
+    }
+
     public function callInterest()
     {
         $prospects = ProspectParent::select(
@@ -87,6 +118,7 @@ class ProspectParentController extends Controller
             'programs.name as program_name',
             'payment__sps.status_pembayaran as status',
             'payment__sps.id as id_payment',
+            'branches.kode_cabang as cabang',
             'payment__sps.course as course',
             'payment__sps.num_children as children_count',
             'payment__sps.total as total',
@@ -234,5 +266,129 @@ class ProspectParentController extends Controller
         $prospectParent->delete();
 
         return response()->json(['message' => 'Prospect parent deleted successfully'], 200);
+    }
+
+    public function countPaidToday()
+    {
+        // Mendapatkan tanggal hari ini
+        $today = Carbon::now('Asia/Jakarta')->toDateString(); // Memastikan waktu dalam zona waktu yang tepat
+
+
+        // Menghitung jumlah pembayaran yang dilakukan hari ini, berdasarkan created_at atau updated_at
+        $count = DB::table('payment__sps')
+            ->join('prospect_parents', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.payment_type', 1)
+            ->where('payment__sps.status_pembayaran', 1) // Hanya status pembayaran yang sudah selesai
+            ->where(function ($query) use ($today) {
+                $query->whereDate('payment__sps.created_at', '=', $today) // Filter berdasarkan created_at
+                    ->orWhereDate('payment__sps.updated_at', '=', $today); // Atau berdasarkan updated_at
+            })
+            ->count(); // Menghitung jumlah pembayaran
+
+        return response()->json(['count' => $count], 200);
+    }
+
+    // Count
+    public function countPendingToday()
+    {
+        // Mendapatkan tanggal hari ini
+        $today = Carbon::today();
+
+        // Menghitung jumlah pembayaran yang dilakukan hari ini, berdasarkan created_at atau updated_at
+        $count = DB::table('payment__sps')
+            ->join('prospect_parents', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.payment_type', 1)
+            ->where('payment__sps.status_pembayaran', 0) // Hanya status pembayaran yang sudah selesai
+            ->where(function ($query) use ($today) {
+                $query->whereDate('payment__sps.created_at', '=', $today) // Filter berdasarkan created_at
+                    ->orWhereDate('payment__sps.updated_at', '=', $today); // Atau berdasarkan updated_at
+            })
+            ->count(); // Menghitung jumlah pembayaran
+
+        return response()->json(['count' => $count], 200);
+    }
+
+    public function countLeadsToday()
+    {
+        // Mendapatkan tanggal hari ini
+        $today = Carbon::today();
+
+        // Menghitung jumlah pembayaran yang dilakukan hari ini, berdasarkan created_at atau updated_at
+        $count = DB::table('payment__sps')
+            ->join('prospect_parents', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.payment_type', 1)
+            ->whereIn('payment__sps.status_pembayaran', [0, 1, 2]) // Hanya status pembayaran yang sudah selesai
+            ->where(function ($query) use ($today) {
+                $query->whereDate('payment__sps.created_at', '=', $today) // Filter berdasarkan created_at
+                    ->orWhereDate('payment__sps.updated_at', '=', $today); // Atau berdasarkan updated_at
+            })
+            ->count(); // Menghitung jumlah pembayaran
+
+        return response()->json(['count' => $count], 200);
+    }
+
+
+    // Count
+    public function countFreeToday()
+    {
+        // Mendapatkan tanggal hari ini
+        $today = Carbon::today();
+
+        // Menghitung jumlah pembayaran yang dilakukan hari ini, berdasarkan created_at atau updated_at
+        $count = DB::table('payment__sps')
+            ->join('prospect_parents', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.payment_type', 1)
+            ->where('payment__sps.status_pembayaran', 1) // Hanya status pembayaran yang sudah selesai
+            ->where('payment__sps.total', 0)
+            ->where(function ($query) use ($today) {
+                $query->whereDate('payment__sps.created_at', '=', $today) // Filter berdasarkan created_at
+                    ->orWhereDate('payment__sps.updated_at', '=', $today); // Atau berdasarkan updated_at
+            })
+            ->count(); // Menghitung jumlah pembayaran
+
+        return response()->json(['count' => $count], 200);
+    }
+
+    // Count
+    public function countExpiredToday()
+    {
+        // Mendapatkan tanggal hari ini
+        $today = Carbon::today();
+
+        // Menghitung jumlah pembayaran yang dilakukan hari ini, berdasarkan created_at atau updated_at
+        $count = DB::table('payment__sps')
+            ->join('prospect_parents', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.payment_type', 1)
+            ->where('payment__sps.status_pembayaran', 2) // Hanya status pembayaran yang sudah selesai
+            ->where(function ($query) use ($today) {
+                $query->whereDate('payment__sps.created_at', '=', $today) // Filter berdasarkan created_at
+                    ->orWhereDate('payment__sps.updated_at', '=', $today); // Atau berdasarkan updated_at
+            })
+            ->count(); // Menghitung jumlah pembayaran
+
+        return response()->json(['count' => $count], 200);
+    }
+
+    // Count
+    public function countHadirToday()
+    {
+        // Mendapatkan tanggal hari ini
+        $today = Carbon::today();
+
+        // Menghitung jumlah pembayaran yang dilakukan hari ini, berdasarkan created_at, updated_at, dan tgl_checkin
+        $count = DB::table('payment__sps')
+            ->join('prospect_parents', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.payment_type', 1)
+            ->where('payment__sps.status_pembayaran', 1)
+            ->whereNotNull('prospect_parents.tgl_checkin') // Memastikan ada tgl_checkin
+            ->whereDate('prospect_parents.tgl_checkin', '=', $today) // Mengambil data berdasarkan tgl_checkin yang sesuai dengan hari ini
+            ->where(function ($query) use ($today) {
+                // Filter berdasarkan created_at atau updated_at
+                $query->whereDate('payment__sps.created_at', '=', $today)
+                    ->orWhereDate('payment__sps.updated_at', '=', $today);
+            })
+            ->count(); // Menghitung jumlah data
+
+        return response()->json(['count' => $count], 200);
     }
 }

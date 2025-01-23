@@ -35,10 +35,21 @@ use App\Http\Controllers\KelasController;
 //     return $request->user();
 // });
 
+
+//Count Dashboard Prospect
+Route::get('count_paid_today', [ProspectParentController::class, 'countPaidToday']);
+Route::get('count_pending_today', [ProspectParentController::class, 'countPendingToday']);
+Route::get('count_leads_today', [ProspectParentController::class, 'countLeadsToday']);
+Route::get('count_free_today', [ProspectParentController::class, 'countFreeToday']);
+Route::get('count_expired_today', [ProspectParentController::class, 'countExpiredToday']);
+Route::get('count_hadir_today', [ProspectParentController::class, 'countHadirToday']);
+// Route::get('count_signup_today', [ProspectParentController::class, 'countSignUpToday']);
+
 //Dashboard MRE View
 Route::get('/studentsall', [StudentController::class, 'studentall']);
 Route::get('prospect', [ProspectParentController::class, 'index']);
 Route::get('spcall', [ProspectParentController::class, 'callSP']);
+Route::get('nonspcall', [ProspectParentController::class, 'callNoSp']);
 Route::get('prgcall', [ProspectParentController::class, 'callPrg']);
 Route::get('interest-call', [ProspectParentController::class, 'callInterest']);
 Route::get('count_prospect', [ProspectParentController::class, 'countProspectsWithPaymentTypeOne']);

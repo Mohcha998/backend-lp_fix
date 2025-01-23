@@ -102,45 +102,9 @@ class BranchController extends Controller
         return response()->json($branches, 200);
     }
 
-    public function branch_revenue()
-    {
-        $branches = Branch::select(
-            'branches.*',
-            DB::raw('CAST(SUM(payment__sps.total) AS UNSIGNED) as total_revenue')
-        )
-            ->leftJoin('prospect_parents', 'branches.id', '=', 'prospect_parents.id_cabang')
-            ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
-            ->whereBetween('payment__sps.created_at', [
-                now()->startOfYear(),
-                now()->endOfYear(),
-            ])
-            ->groupBy('branches.id')
-            ->orderBy('total_revenue', 'desc')
-            ->get();
 
-        $totalRevenue = $branches->sum('total_revenue');
 
-        return response()->json([
-            'branches' => $branches,
-            'total_revenue' => $totalRevenue,
-        ], 200);
-    }
 
-    public function branch_revtop()
-    {
-        $branches = Branch::select(
-            'branches.*',
-            DB::raw('SUM(payment__sps.total) as total_revenue')
-        )
-            ->leftJoin('prospect_parents', 'branches.id', '=', 'prospect_parents.id_cabang')
-            ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
-            ->groupBy('branches.id')
-            ->orderBy('total_revenue', 'desc')
-            ->take(3)
-            ->get();
-
-        return response()->json($branches, 200);
-    }
 
     // public function branch_revenue_month()
     // {
@@ -166,6 +130,31 @@ class BranchController extends Controller
     //     ], 200);
     // }
 
+    public function branch_revenue()
+    {
+        $branches = Branch::select(
+            'branches.*',
+            DB::raw('CAST(SUM(payment__sps.total) AS UNSIGNED) as total_revenue')
+        )
+            ->leftJoin('prospect_parents', 'branches.id', '=', 'prospect_parents.id_cabang')
+            ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.status_pembayaran', '=', 1)
+            ->whereBetween('payment__sps.created_at', [
+                now()->startOfYear(),
+                now()->endOfYear(),
+            ])
+            ->groupBy('branches.id')
+            ->orderBy('total_revenue', 'desc')
+            ->get();
+
+        $totalRevenue = $branches->sum('total_revenue');
+
+        return response()->json([
+            'branches' => $branches,
+            'total_revenue' => $totalRevenue,
+        ], 200);
+    }
+
     public function branch_revenue_month()
     {
         $branches = Branch::select(
@@ -174,6 +163,7 @@ class BranchController extends Controller
         )
             ->leftJoin('prospect_parents', 'branches.id', '=', 'prospect_parents.id_cabang')
             ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.status_pembayaran', '=', 1)
             ->whereBetween('payment__sps.created_at', [
                 now()->startOfMonth()->subMonths(2),
                 now()->endOfMonth(),
@@ -190,6 +180,23 @@ class BranchController extends Controller
         ], 200);
     }
 
+    public function branch_revtop()
+    {
+        $branches = Branch::select(
+            'branches.*',
+            DB::raw('SUM(payment__sps.total) as total_revenue')
+        )
+            ->leftJoin('prospect_parents', 'branches.id', '=', 'prospect_parents.id_cabang')
+            ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.status_pembayaran', '=', 1)
+            ->groupBy('branches.id')
+            ->orderBy('total_revenue', 'desc')
+            ->take(3)
+            ->get();
+
+        return response()->json($branches, 200);
+    }
+
     public function branch_revtop_month()
     {
         $branches = Branch::select(
@@ -198,6 +205,7 @@ class BranchController extends Controller
         )
             ->leftJoin('prospect_parents', 'branches.id', '=', 'prospect_parents.id_cabang')
             ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+            ->where('payment__sps.status_pembayaran', '=', 1)
             ->whereBetween('payment__sps.created_at', [
                 now()->startOfMonth()->subMonths(2),
                 now()->endOfMonth(),
