@@ -203,21 +203,21 @@ class PaymentSpController extends Controller
         $endDate1 = Carbon::now()->endOfMonth()->endOfDay()->toDateTimeString();
 
         // Last month range
-        $startDate2 = Carbon::now()->subMonth()->startOfMonth()->startOfDay()->toDateTimeString();
-        $endDate2 = Carbon::now()->subMonth()->endOfMonth()->endOfDay()->toDateTimeString();
+        $startDate2 = Carbon::now()->subMonth(1)->startOfMonth()->startOfDay()->toDateTimeString();
+        $endDate2 = Carbon::now()->subMonth(1)->endOfMonth()->endOfDay()->toDateTimeString();
 
         // Two months ago range
         $startDate3 = Carbon::now()->subMonths(2)->startOfMonth()->startOfDay()->toDateTimeString();
         $endDate3 = Carbon::now()->subMonths(2)->endOfMonth()->endOfDay()->toDateTimeString();
 
-        // Query to sum total payments for each of the last three months
         $payments = DB::table('payment__sps')
             ->selectRaw('
-            SUM(CASE WHEN date_paid >= ? AND date_paid <= ? THEN total ELSE 0 END) as month_1,
-            SUM(CASE WHEN date_paid >= ? AND date_paid <= ? THEN total ELSE 0 END) as month_2,
-            SUM(CASE WHEN date_paid >= ? AND date_paid <= ? THEN total ELSE 0 END) as month_3
+            SUM(CASE WHEN created_at >= ? AND created_at <= ? AND status_pembayaran = 1 THEN total ELSE 0 END) as month_1,
+            SUM(CASE WHEN created_at >= ? AND created_at <= ? AND status_pembayaran = 1 THEN total ELSE 0 END) as month_2,
+            SUM(CASE WHEN created_at >= ? AND created_at <= ? AND status_pembayaran = 1 THEN total ELSE 0 END) as month_3
         ', [$startDate3, $endDate3, $startDate2, $endDate2, $startDate1, $endDate1])
             ->first();
+
 
         $month_1 = $payments->month_1 ?? 0;
         $month_2 = $payments->month_2 ?? 0;
@@ -225,7 +225,7 @@ class PaymentSpController extends Controller
 
         $labels = [
             Carbon::now()->subMonths(2)->format('F Y'),
-            Carbon::now()->subMonth()->format('F Y'),
+            Carbon::now()->subMonth(1)->format('F Y'),
             Carbon::now()->format('F Y'),
         ];
 

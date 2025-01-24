@@ -372,10 +372,8 @@ class ProspectParentController extends Controller
     // Count
     public function countHadirToday()
     {
-        // Mendapatkan tanggal hari ini
         $today = Carbon::today();
 
-        // Menghitung jumlah pembayaran yang dilakukan hari ini, berdasarkan created_at, updated_at, dan tgl_checkin
         $count = DB::table('payment__sps')
             ->join('prospect_parents', 'prospect_parents.id', '=', 'payment__sps.id_parent')
             ->where('payment__sps.payment_type', 1)
@@ -383,11 +381,10 @@ class ProspectParentController extends Controller
             ->whereNotNull('prospect_parents.tgl_checkin') // Memastikan ada tgl_checkin
             ->whereDate('prospect_parents.tgl_checkin', '=', $today) // Mengambil data berdasarkan tgl_checkin yang sesuai dengan hari ini
             ->where(function ($query) use ($today) {
-                // Filter berdasarkan created_at atau updated_at
-                $query->whereDate('payment__sps.created_at', '=', $today)
-                    ->orWhereDate('payment__sps.updated_at', '=', $today);
+                $query->whereDate('prospect_parents.tgl_checkin', '=', $today)
+                    ->orWhereDate('prospect_parents.tgl_checkin', '=', $today);
             })
-            ->count(); // Menghitung jumlah data
+            ->count();
 
         return response()->json(['count' => $count], 200);
     }

@@ -439,7 +439,7 @@ class HandleSubmitController extends Controller
 
         $emailParent = $parent->email;
         $nameParent = $parent->name;
-        $phoneParent = $parent->phone;
+        $phoneParent = (string) $parent->phone;
 
         if (!$payment) {
             return response()->json(['error' => 'Payment not found'], 404);
