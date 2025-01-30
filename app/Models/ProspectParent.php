@@ -26,6 +26,7 @@ class ProspectParent extends Model
         'call4',
         'tgl_checkin',
         'invitional_code',
+        'jmlh_anak',
         'is_father',
         'is_mother',
     ];
@@ -44,6 +45,7 @@ class ProspectParent extends Model
     {
         return $this->hasMany(User::class, 'parent_id');
     }
+
     public function parents()
     {
         return $this->hasMany(Parents::class, 'id_parent', 'id');

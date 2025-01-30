@@ -14,4 +14,9 @@ class Branch extends Model
         'kota',
         'kode_cabang',
     ];
+
+    public function branches()
+    {
+        return $this->hasMany(Branch::class, 'kota', 'name');
+    }
 }

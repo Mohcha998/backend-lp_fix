@@ -29,4 +29,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(ProspectParent::class, 'parent_id');
     }
+
+    public function students()
+    {
+        return $this->hasMany(Student::class, 'user_id', 'id');
+    }
 }

@@ -23,6 +23,8 @@ class Student extends Model
         'tgl_lahir',
         'asal_sekolah',
         'perubahan',
+        'jenis_kelamin',
+        'jadwal',
         'kelebihan',
         'dirawat',
         'kondisi',
@@ -32,4 +34,9 @@ class Student extends Model
         'emergency_call',
         'status',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }

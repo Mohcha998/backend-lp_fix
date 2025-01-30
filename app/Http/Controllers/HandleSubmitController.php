@@ -9,6 +9,8 @@ use App\Models\Payment_Sps;
 use App\Models\Messages;
 use App\Models\Student;
 use App\Models\Course;
+use App\Models\Parents;
+use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\PaymentSpController;
@@ -17,7 +19,10 @@ use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ParentsController;
 use App\Http\Controllers\inviteController;
-use PhpParser\Node\NullableType;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+// use PhpParser\Node\NullableType;
 
 class HandleSubmitController extends Controller
 {
@@ -562,5 +567,306 @@ class HandleSubmitController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'An error occurred', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    //Submit Untuk di LP Registration
+
+    public function registration_submit(Request $request)
+    {
+        // Mendapatkan data JSON dari body request
+        $data = json_decode($request->getContent(), true);
+
+        // Validasi data
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'phone' => 'required|string|max:255',
+            'jmlh_anak' => 'nullable|integer',
+            'students.*.id_course' => 'required|integer',
+            'students.*.program' => 'required|integer',
+            'students.*.id_branch' => 'required|integer',
+        ]);
+
+        try {
+            $prospectParent = ProspectParent::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'],
+                'id_cabang' => $data['students'][0]['id_branch'],
+                'id_program' => $data['students'][0]['program'],
+                'jmlh_anak' => $data['jmlh_anak'],
+            ]);
+
+            $defaultPassword = substr($data['phone'], -4);
+
+            $fatherUser = User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'],
+                'parent_id' => $prospectParent->id,
+                'password' => Hash::make($defaultPassword),
+            ]);
+
+            if (isset($data['students']) && is_array($data['students'])) {
+                foreach ($data['students'] as $student) {
+                    Student::create([
+                        'user_id' => $fatherUser->id,
+                        'id_course' => $student['id_course'],
+                        'id_program' => $student['program'],
+                        'id_branch' => $student['id_branch'],
+                        'status' => '0',
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'parent_id' => $prospectParent->id,
+                'user_id' => $fatherUser->id,
+                'students' => isset($data['students']) ? Student::where('user_id', $fatherUser->id)->get(['id']) : []
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+        }
+    }
+
+
+    public function paymentRegis(Request $request)
+    {
+        // Validasi data yang diterima
+        $validated = $request->validate([
+            'tipe_pembayaran' => 'nullable|string|max:255',
+            'pembayaran' => 'nullable|string|max:255',
+            'jenis_bayar' => 'nullable|string|max:255',
+            'nama_bank' => 'nullable|string|max:255',
+            'nama_kartu' => 'nullable|string|max:255',
+            'nama_bankdc' => 'nullable|string|max:255',
+            'nama_kartudc' => 'nullable|string|max:255',
+            'id_parent' => 'required|integer',
+            'bulan_cicilan' => 'nullable|string|max:255',
+            'jumlah' => 'nullable|integer',
+            'upload_bukti' => 'nullable|file|mimes:jpg,png,pdf|max:10240',
+        ]);
+
+        try {
+            // Proses upload file jika ada
+            if ($request->hasFile('upload_bukti')) {
+                $file = $request->file('upload_bukti');
+                $fileName = time() . '.' . $file->getClientOriginalExtension(); // Membuat nama file unik
+                $file->storeAs('public/bukti', $fileName); // Menyimpan file ke folder public/bukti
+
+                // Path file untuk disimpan di database
+                $filePath = 'storage/bukti/' . $fileName;
+            }
+
+            // Jika tipe pembayaran adalah EDC
+            if (!empty($validated['tipe_pembayaran']) && $validated['tipe_pembayaran'] === 'edc') {
+                $parentprg = ProspectParent::join('programs', 'programs.id', '=', 'prospect_parents.id_program')
+                    ->where('prospect_parents.id', $validated['id_parent'])
+                    ->select('prospect_parents.*', 'programs.name as program_name')
+                    ->first();
+
+                // ID pembayaran berikutnya
+                $lastPayment = Payment_Sps::latest('id')->first();
+                $lastId = $lastPayment ? $lastPayment->id : 0;
+                $nextId = $lastId + 1;
+
+                // Data untuk payment
+                $paymentData = [
+                    'id_parent' => $validated['id_parent'],
+                    'link_pembayaran' => null,
+                    'no_invoice' => 'MREVID-' . now()->format('Ymd') . str_pad($nextId, 5, '0', STR_PAD_LEFT),
+                    'no_pemesanan' => 'ORDER' . time(),
+                    'date_paid' => now(),
+                    'status_pembayaran' => $validated['pembayaran'],
+                    'description' => "Pembayaran Program {$parentprg->program_name}",
+                    'payment_type' => 2,
+                    'biaya_admin' => 0,
+                    'nama_bank' => $validated['nama_bank'] ?? $validated['nama_bankdc'] ?? null,
+                    'nama_kartu' => $validated['nama_kartu'] ?? $validated['nama_kartudc'] ?? null,
+                    'bulan_cicilan' => $validated['bulan_cicilan'],
+                    'file' => isset($filePath) ? $filePath : null, // Menyimpan path file jika ada
+                    'total' => $validated['jumlah'],
+                    'is_inv' => 0,
+                ];
+
+                // Menyimpan data pembayaran ke database
+                $payments = Payment_Sps::create($paymentData);
+
+                // Mendapatkan ID pembayaran
+                $paymentId = $payments->id;
+                $invoiceLink = ""; // Jika EDC tidak membutuhkan invoice link
+            } else {
+                // Jika tipe pembayaran bukan EDC, proses dengan invoice
+                $parentprg = ProspectParent::join('programs', 'programs.id', '=', 'prospect_parents.id_program')
+                    ->where('prospect_parents.id', $validated['id_parent'])
+                    ->select('prospect_parents.*', 'programs.name as program_name')
+                    ->first();
+
+                $invoiceRequest = new Request([
+                    'id_parent' => $validated['id_parent'],
+                    'total' => $validated['jumlah'],
+                    'payer_email' => $parentprg->email,
+                    'payment_type' => 2,
+                    'description' => "Pembayaran Program {$parentprg->program_name}"
+                ]);
+
+                // Asumsikan Anda menggunakan controller lain untuk membuat invoice
+                $invoiceResponse = $this->invoiceController->createInvoice($invoiceRequest);
+                $invoiceLink = $invoiceResponse->getData()->checkout_link;
+                $invoiceData = $invoiceResponse->getData(); // Ambil data response
+
+                Log::info('Invoice Response:', (array) $invoiceData); // Log response untuk debugging
+                $invoiceId = property_exists($invoiceData, 'id') ? $invoiceData->id : null;
+            }
+
+            return response()->json([
+                'message' => 'Form submitted successfully',
+                'invoice_link' => $invoiceLink ?? null,
+                'id_payment' => $paymentId ?? $invoiceId
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'An error occurred', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function saveStudentParent(Request $request)
+    {
+        try {
+            // Validasi request
+            $validated = $request->validate([
+                'father_name' => 'nullable|string|max:255',
+                'father_phone' => 'nullable|string|max:15',
+                'father_email' => 'nullable|email|max:255',
+                'mother_name' => 'nullable|string|max:255',
+                'mother_phone' => 'nullable|string|max:15',
+                'mother_email' => 'nullable|email|max:255',
+                'user_id' => 'nullable|string|max:15',
+                'id_parent' => 'nullable|string|max:15',
+                'students' => 'nullable|array',
+                'students.*.student_id' => 'nullable|exists:students,id',
+                'students.*.student_full_name' => 'nullable|string|max:255',
+                'students.*.student_birthdate' => 'nullable|date',
+                'students.*.student_gender' => 'nullable|string|in:P,L',
+                'students.*.student_school' => 'nullable|string|max:255',
+                'students.*.student_phone' => 'nullable|string|max:15',
+                'students.*.student_email' => 'nullable|email|max:255',
+                'students.*.jadwal_kelas' => 'nullable|string|in:kamis_1600_1800,jumat_1600_1800,sabtu_1300_1500,sabtu_1600_1800',
+            ]);
+
+            // Simpan data ayah
+            $father = Parents::create([
+                'name' => $request->father_name,
+                'phone' => $request->father_phone,
+                'email' => $request->father_email,
+                'user_id' => $validated['user_id'],
+                'id_parent' => $validated['id_parent'],
+            ]);
+
+            // Simpan data ibu
+            $mother = Parents::create([
+                'name' => $request->mother_name,
+                'phone' => $request->mother_phone,
+                'email' => $request->mother_email,
+                'user_id' => $validated['user_id'],
+                'id_parent' => $validated['id_parent'],
+            ]);
+
+            // Loop untuk memperbarui data student
+            foreach ($request->students as $studentData) {
+                $student = Student::find($studentData['student_id']);
+                if ($student) {
+                    $student->update([
+                        'name' => $studentData['student_full_name'],
+                        'tgl_lahir' => $studentData['student_birthdate'],
+                        'jenis_kelamin' => $studentData['student_gender'],
+                        'asal_sekolah' => $studentData['student_school'],
+                        'phone' => $studentData['student_phone'],
+                        'email' => $studentData['student_email'],
+                        'jadwal' => $studentData['jadwal_kelas'],
+                        'id_user_fthr' => $father->id,
+                        'id_user_mthr' => $mother->id,
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Parent and Student data saved/updated successfully',
+                'data' => [
+                    'father' => $father,
+                    'mother' => $mother,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            // Tangani error dan kirimkan pesan error
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred while saving data.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    public function checkUser(Request $request)
+    {
+        $email = $request->input('email');
+        $phone = $request->input('phone');
+
+        // Cari prospect parent berdasarkan email atau phone
+        $prospectParent = ProspectParent::where('email', $email)
+            ->orWhere('phone', $phone)
+            ->first();
+
+        if (!$prospectParent) {
+            return response()->json(['exists' => false]);
+        }
+
+        // Ambil user terkait prospect parent
+        $user = User::where('parent_id', $prospectParent->id)->first();
+
+        if (!$user) {
+            return response()->json([
+                'exists' => true,
+                'message' => 'User tidak ditemukan untuk parent ini.'
+            ]);
+        }
+
+        // Cek apakah user memiliki student dengan status = 1
+        $hasActiveStudents = Student::where('user_id', $user->id)
+            ->where('status', 1)
+            ->exists();
+
+        if ($hasActiveStudents) {
+            return response()->json([
+                'exists' => true,
+                'message' => 'Anda sudah pernah mendaftar dan tidak bisa lanjut.'
+            ]);
+        }
+
+        // Cek pembayaran
+        $payment = Payment_Sps::where('id_parent', $prospectParent->id)->first();
+
+        if ($payment) {
+            if ($payment->status_pembayaran == 0) {
+                return response()->json([
+                    'exists' => true,
+                    'step' => 2,
+                    'message' => 'Pembayaran belum selesai. Lanjut ke Step 3.'
+                ]);
+            } elseif ($payment->status_pembayaran == 1) {
+                return response()->json([
+                    'exists' => true,
+                    'step' => 3,
+                    'message' => 'Pembayaran selesai. Lanjut ke Step 4.'
+                ]);
+            }
+        }
+
+        return response()->json([
+            'exists' => true,
+            'step' => 2,
+            'message' => 'Email atau Nomor HP sudah terdaftar. Lanjut ke Step 2.'
+        ]);
     }
 }

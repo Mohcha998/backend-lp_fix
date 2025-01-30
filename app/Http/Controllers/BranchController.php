@@ -11,8 +11,14 @@ class BranchController extends Controller
 {
     public function index()
     {
-        return response()->json(Branch::all());
+        return response()->json(
+            Branch::join('kota', 'branches.kota', '=', 'kota.id')
+                ->orderBy('branches.name', 'asc')
+                ->select('branches.*', 'kota.name as kota')
+                ->get()
+        );
     }
+
 
     public function store(Request $request)
     {
@@ -127,8 +133,6 @@ class BranchController extends Controller
         ], 200);
     }
 
-
-
     // public function branch_revenue_month()
     // {
     //     $branches = Branch::select(
@@ -214,5 +218,15 @@ class BranchController extends Controller
             ->get();
 
         return response()->json($branches, 200);
+    }
+
+    public function getBranchesByKota(Request $request)
+    {
+        $kota = $request->input('kota');
+
+        // Pastikan nama kota yang diminta cocok dengan yang ada di tabel kota
+        $branches = Branch::where('kota', $kota)->get();
+
+        return response()->json($branches);
     }
 }

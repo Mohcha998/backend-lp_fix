@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Models\Branch;
 use App\Http\Controllers\ProspectParentController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\ProgramController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\CourseController;
 use App\Http\Controllers\SchedulePrgController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\KelasController;
+use App\Http\Controllers\KotaController;
 
 
 
@@ -68,7 +70,17 @@ Route::put('prospect/{id}', [ProspectParentController::class, 'update']);
 Route::put('prospect/{id}', [ProspectParentController::class, 'update']);
 Route::delete('prospect/{id}', [ProspectParentController::class, 'destroy']);
 
+//Kota
+// Route::get('/kota-ch', function (Request $request) {
+//     $kotaId = $request->input('kota');
+//     $branches = Branch::where('kota', $kotaId)->get();
+//     return response()->json($branches);
+// });
+Route::get('/kota', [KotaController::class, 'getAllKota']);
+
+
 //Cabang Controller
+Route::get('/kota-ch', [BranchController::class, 'getBranchesByKota']);
 Route::get('branches', [BranchController::class, 'index']);
 Route::post('branches', [BranchController::class, 'store']);
 Route::get('branches/{id}', [BranchController::class, 'show']);
@@ -81,6 +93,11 @@ Route::get('branch_rev', [BranchController::class, 'branch_revenue']);
 Route::get('branch_top', [BranchController::class, 'branch_revtop']);
 Route::get('branch_revm', [BranchController::class, 'branch_revenue_month']);
 Route::get('branch_topm', [BranchController::class, 'branch_revtop_month']);
+
+Route::post('submit_sign', [HandleSubmitController::class, 'registration_submit']);
+Route::post('check-user', [HandleSubmitController::class, 'checkUser']);
+Route::post('payment-regis', [HandleSubmitController::class, 'paymentRegis']);
+Route::post('students-prnts', [HandleSubmitController::class, 'saveStudentParent']);
 
 //Students Controller
 Route::get('student_month', [StudentController::class, 'student_last_three_months']);
