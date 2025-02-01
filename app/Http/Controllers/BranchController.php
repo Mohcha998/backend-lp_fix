@@ -79,7 +79,6 @@ class BranchController extends Controller
         return response()->json($branch, 200);
     }
 
-
     public function branch_total()
     {
         $branch = Branch::select(

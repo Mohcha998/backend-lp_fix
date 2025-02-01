@@ -120,6 +120,7 @@ class ProspectParentController extends Controller
 
     public function callInterest()
     {
+        // Ambil data prospek
         $prospects = ProspectParent::select(
             'prospect_parents.*',
             'branches.name as branch_name',
@@ -131,9 +132,10 @@ class ProspectParentController extends Controller
             'payment__sps.num_children as children_count',
             'payment__sps.total as total',
             'payment__sps.status_pembayaran as status_pembayaran',
+            'payment__sps.file as gambar',
             'users.name as user_name',
             'users.email as user_email',
-            'users.id as user_id'
+            'users.id as user_id',
         )
             ->leftJoin('branches', 'prospect_parents.id_cabang', '=', 'branches.id')
             ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')
@@ -142,18 +144,81 @@ class ProspectParentController extends Controller
             ->where('payment__sps.payment_type', 2)
             ->where('payment__sps.status_pembayaran', 1)
             ->whereNotNull('users.id')
-            // ->whereNotNull('prospect_parents.tgl_checkin')
-            ->distinct()
             ->orderBy('prospect_parents.id', 'asc')
             ->get();
 
-        foreach ($prospects as $prospect) {
-            $prospect->children = Student::where('user_id', $prospect->user_id)
+        $prospectsGrouped = $prospects->groupBy('id');
+
+        $finalProspects = [];
+
+        foreach ($prospectsGrouped as $prospectGroup) {
+            $prospectWithImage = $prospectGroup->firstWhere('gambar', '!=', null);
+
+            if (!$prospectWithImage) {
+                $prospectWithImage = $prospectGroup->first();
+            }
+
+            if ($prospectWithImage->gambar) {
+                $prospectWithImage->gambar = asset('http://127.0.0.1:8000/' . $prospectWithImage->gambar);
+            } else {
+                $prospectWithImage->gambar = asset('storage/images/default.jpg');
+            }
+
+            $prospectWithImage->children = Student::where('user_id', $prospectWithImage->user_id)
                 ->get(['id as children', 'name as nama_murid', 'tgl_lahir', 'email as email_murid', 'phone as tlp_murid']);
+
+            $finalProspects[] = $prospectWithImage;
         }
 
-        return response()->json($prospects, 200);
+        return response()->json($finalProspects, 200);
     }
+
+    //Distinc
+
+    // public function callInterest()
+    // {
+    //     $prospects = ProspectParent::select(
+    //         'prospect_parents.id', // Pilih hanya kolom ID yang unik
+    //         'prospect_parents.name', // Menambahkan kolom yang relevan dari prospect_parent
+    //         'branches.name as branch_name',
+    //         'programs.name as program_name',
+    //         'payment__sps.status_pembayaran as status',
+    //         'payment__sps.id as id_payment',
+    //         'branches.kode_cabang as cabang',
+    //         'payment__sps.course as course',
+    //         'payment__sps.num_children as children_count',
+    //         'payment__sps.total as total',
+    //         'payment__sps.status_pembayaran as status_pembayaran',
+    //         'payment__sps.file as gambar',
+    //         'users.name as user_name',
+    //         'users.email as user_email',
+    //         'users.id as user_id',
+    //     )
+    //         ->leftJoin('branches', 'prospect_parents.id_cabang', '=', 'branches.id')
+    //         ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')
+    //         ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')
+    //         ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
+    //         ->where('payment__sps.payment_type', 2)
+    //         ->where('payment__sps.status_pembayaran', 1)
+    //         ->whereNotNull('users.id')
+    //         ->distinct('prospect_parents.id') // Pastikan ID tidak duplikat
+    //         ->orderBy('prospect_parents.id', 'asc')
+    //         ->get();
+
+    //     foreach ($prospects as $prospect) {
+    //         if ($prospect->gambar) {
+    //             $prospect->gambar = asset('http://127.0.0.1:8000/' . $prospect->gambar);
+    //         } else {
+    //             $prospect->gambar = asset('storage/images/default.jpg');
+    //         }
+
+    //         $prospect->children = Student::where('user_id', $prospect->user_id)
+    //             ->get(['id as children', 'name as nama_murid', 'tgl_lahir', 'email as email_murid', 'phone as tlp_murid']);
+    //     }
+
+    //     return response()->json($prospects, 200);
+    // }
+
 
     public function checkin($id)
     {
