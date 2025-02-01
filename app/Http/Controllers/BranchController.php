@@ -69,7 +69,7 @@ class BranchController extends Controller
     {
         $branch = Branch::select(
             'branches.*',
-            DB::raw('COUNT(students.id) as total_students'),
+            DB::raw('COUNT(CASE WHEN students.status = 1 THEN students.id END) as total_students')
         )
             ->leftJoin('students', 'branches.id', '=', 'students.id_branch')
             ->groupBy('branches.id')
@@ -78,6 +78,7 @@ class BranchController extends Controller
 
         return response()->json($branch, 200);
     }
+
 
     public function branch_total()
     {
@@ -132,6 +133,8 @@ class BranchController extends Controller
             'total_revenue' => $totalRevenue,
         ], 200);
     }
+
+
 
     // public function branch_revenue_month()
     // {

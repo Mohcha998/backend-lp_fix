@@ -100,12 +100,13 @@ class ProspectParentController extends Controller
             ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')
             ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
             ->where(function ($query) {
-                $query->where(function ($q) {
-                    $q->where('payment__sps.payment_type', 1)
-                        ->where('payment__sps.status_pembayaran', 3);
-                })->orWhere(function ($q) {
+                // $query->where(function ($q) {
+                //     $q->where('payment__sps.payment_type', 1)
+                //         ->where('payment__sps.status_pembayaran', 3);
+                // })
+                $query->orWhere(function ($q) {
                     $q->where('payment__sps.payment_type', 2)
-                        ->where('payment__sps.status_pembayaran', 0);
+                        ->where('payment__sps.status_pembayaran', 1);
                 });
             })
             // ->whereNull('prospect_parents.tgl_checkin')
@@ -139,7 +140,7 @@ class ProspectParentController extends Controller
             ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')
             ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')
             ->where('payment__sps.payment_type', 2)
-            ->where('payment_sps.status_pembayaran', 1)
+            ->where('payment__sps.status_pembayaran', 1)
             ->whereNotNull('users.id')
             // ->whereNotNull('prospect_parents.tgl_checkin')
             ->distinct()
@@ -153,8 +154,6 @@ class ProspectParentController extends Controller
 
         return response()->json($prospects, 200);
     }
-
-
 
     public function checkin($id)
     {
@@ -396,5 +395,58 @@ class ProspectParentController extends Controller
             ->count();
 
         return response()->json(['count' => $count], 200);
+    }
+
+    public function exportSignUp()
+    {
+        $results = DB::table('prospect_parents')
+            ->leftJoin('branches', 'prospect_parents.id_cabang', '=', 'branches.id')  // Gabungkan tabel branches
+            ->leftJoin('programs', 'prospect_parents.id_program', '=', 'programs.id')  // Gabungkan tabel programs
+            ->leftJoin('payment__sps', 'prospect_parents.id', '=', 'payment__sps.id_parent')  // Gabungkan tabel payment_sps
+            ->leftJoin('users', 'users.parent_id', '=', 'prospect_parents.id')  // Gabungkan tabel users berdasarkan parent_id
+            ->leftJoin('parents as father', function ($join) {
+                $join->on('prospect_parents.id', '=', 'father.id_parent')
+                    ->where('father.is_father', 1);  // Gabungkan tabel parents untuk data ayah
+            })
+            ->leftJoin('parents as mother', function ($join) {
+                $join->on('prospect_parents.id', '=', 'mother.id_parent')
+                    ->where('mother.is_mother', 1);  // Gabungkan tabel parents untuk data ibu
+            })
+            ->leftJoin('students', 'students.user_id', '=', 'users.id')  // Gabungkan tabel students berdasarkan user_id
+            ->distinct()  // Mengambil data yang unik
+            ->where('payment__sps.payment_type', '=', 2)  // Filter untuk payment_type = 2
+            ->where('payment__sps.status_pembayaran', '=', 1)  // Filter untuk status_pembayaran = 1
+            ->whereNotNull('users.id')
+            ->select(
+                'prospect_parents.id as id_prospect',
+                'payment__sps.created_at as tanggal_bayar',
+                'prospect_parents.name as nama_prospect',
+                'prospect_parents.phone as hp_prospect',
+                'prospect_parents.email as email_prospect',
+                'programs.name as program',
+                'father.name as nama_ayah',  // Nama ayah
+                'father.phone as hp_ayah',   // Nomor HP ayah
+                'father.email as email_ayah', // Email ayah
+                'father.address as pekerjaan_ayah', // Alamat/pekerjaan ayah
+                'mother.name as nama_ibu',  // Nama ibu
+                'mother.phone as hp_ibu',   // Nomor HP ibu
+                'mother.email as email_ibu', // Email ibu
+                'mother.address as pekerjaan_ibu', // Alamat/pekerjaan ibu
+                'students.name as nama_anak',
+                'students.phone as hp_anak',
+                'students.email as email_anak',
+                DB::raw('TIMESTAMPDIFF(YEAR, students.tgl_lahir, CURDATE()) as usia_anak'),
+                'students.tgl_lahir as tgl_lahir_anak',
+                'students.asal_sekolah as sekolah_anak',
+                'branches.name as cabang_kota',
+                'prospect_parents.source as source',
+                DB::raw("CASE
+            WHEN payment__sps.status_pembayaran = 1 THEN 'lunas'
+            ELSE 'belum lunas'END as status_transaksi")
+            )
+            ->orderBy('prospect_parents.id', 'asc')
+            ->get();
+
+        return response()->json($results);
     }
 }

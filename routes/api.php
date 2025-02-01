@@ -46,6 +46,7 @@ Route::get('count_free_today', [ProspectParentController::class, 'countFreeToday
 Route::get('count_expired_today', [ProspectParentController::class, 'countExpiredToday']);
 Route::get('count_hadir_today', [ProspectParentController::class, 'countHadirToday']);
 // Route::get('count_signup_today', [ProspectParentController::class, 'countSignUpToday']);
+Route::get('export-su', [ProspectParentController::class, 'exportSignUp']);
 
 //Dashboard MRE View
 Route::get('/studentsall', [StudentController::class, 'studentall']);
@@ -118,7 +119,6 @@ Route::delete('payment-sps/{id}', [PaymentSpController::class, 'destroy']);
 Route::post('create-invoice', [PaymentSpController::class, 'createInvoice'])->name('api.create-invoice');;
 Route::post('xendit-callback', [PaymentSpController::class, 'handleXenditCallback']);
 Route::get('payment_month', [PaymentSpController::class, 'payment_last_three_months']);
-
 
 //Invitonal Controller
 Route::prefix('voucher')->group(function () {

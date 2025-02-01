@@ -632,7 +632,6 @@ class HandleSubmitController extends Controller
 
     public function paymentRegis(Request $request)
     {
-        // Validasi data yang diterima
         $validated = $request->validate([
             'tipe_pembayaran' => 'nullable|string|max:255',
             'pembayaran' => 'nullable|string|max:255',
@@ -648,32 +647,34 @@ class HandleSubmitController extends Controller
         ]);
 
         try {
+
+            $total = $validated['jumlah'];
+            $total = str_replace(['Rp', '.'], '', $total);
+            $total = (int) $total;
             // Proses upload file jika ada
             if ($request->hasFile('upload_bukti')) {
                 $file = $request->file('upload_bukti');
-                $fileName = time() . '.' . $file->getClientOriginalExtension(); // Membuat nama file unik
-                $file->storeAs('public/bukti', $fileName); // Menyimpan file ke folder public/bukti
-
-                // Path file untuk disimpan di database
+                $fileName = time() . '.' . $file->getClientOriginalExtension();
+                $file->storeAs('public/bukti', $fileName);
                 $filePath = 'storage/bukti/' . $fileName;
             }
 
-            // Jika tipe pembayaran adalah EDC
+            // Mengambil data orang tua dan program terkait
+            $parentprg = ProspectParent::join('programs', 'programs.id', '=', 'prospect_parents.id_program')
+                ->where('prospect_parents.id', $validated['id_parent'])
+                ->select('prospect_parents.*', 'programs.name as program_name')
+                ->first();
+
+            $paymentId = null;
+            $invoiceLink = null;
+
             if (!empty($validated['tipe_pembayaran']) && $validated['tipe_pembayaran'] === 'edc') {
-                $parentprg = ProspectParent::join('programs', 'programs.id', '=', 'prospect_parents.id_program')
-                    ->where('prospect_parents.id', $validated['id_parent'])
-                    ->select('prospect_parents.*', 'programs.name as program_name')
-                    ->first();
-
-                // ID pembayaran berikutnya
+                // Jika metode pembayaran adalah EDC
                 $lastPayment = Payment_Sps::latest('id')->first();
-                $lastId = $lastPayment ? $lastPayment->id : 0;
-                $nextId = $lastId + 1;
+                $nextId = $lastPayment ? $lastPayment->id + 1 : 1;
 
-                // Data untuk payment
                 $paymentData = [
                     'id_parent' => $validated['id_parent'],
-                    'link_pembayaran' => null,
                     'no_invoice' => 'MREVID-' . now()->format('Ymd') . str_pad($nextId, 5, '0', STR_PAD_LEFT),
                     'no_pemesanan' => 'ORDER' . time(),
                     'date_paid' => now(),
@@ -684,50 +685,41 @@ class HandleSubmitController extends Controller
                     'nama_bank' => $validated['nama_bank'] ?? $validated['nama_bankdc'] ?? null,
                     'nama_kartu' => $validated['nama_kartu'] ?? $validated['nama_kartudc'] ?? null,
                     'bulan_cicilan' => $validated['bulan_cicilan'],
-                    'file' => isset($filePath) ? $filePath : null, // Menyimpan path file jika ada
-                    'total' => $validated['jumlah'],
+                    'file' => isset($filePath) ? $filePath : null,
+                    'total' => $total,
                     'is_inv' => 0,
                 ];
 
-                // Menyimpan data pembayaran ke database
                 $payments = Payment_Sps::create($paymentData);
-
-                // Mendapatkan ID pembayaran
                 $paymentId = $payments->id;
-                $invoiceLink = ""; // Jika EDC tidak membutuhkan invoice link
             } else {
-                // Jika tipe pembayaran bukan EDC, proses dengan invoice
-                $parentprg = ProspectParent::join('programs', 'programs.id', '=', 'prospect_parents.id_program')
-                    ->where('prospect_parents.id', $validated['id_parent'])
-                    ->select('prospect_parents.*', 'programs.name as program_name')
-                    ->first();
-
+                // Jika metode pembayaran bukan EDC, buat invoice melalui Xendit
                 $invoiceRequest = new Request([
                     'id_parent' => $validated['id_parent'],
-                    'total' => $validated['jumlah'],
+                    'total' => $total,
                     'payer_email' => $parentprg->email,
                     'payment_type' => 2,
                     'description' => "Pembayaran Program {$parentprg->program_name}"
                 ]);
 
-                // Asumsikan Anda menggunakan controller lain untuk membuat invoice
                 $invoiceResponse = $this->invoiceController->createInvoice($invoiceRequest);
                 $invoiceLink = $invoiceResponse->getData()->checkout_link;
-                $invoiceData = $invoiceResponse->getData(); // Ambil data response
+                $invoiceData = $invoiceResponse->getData();
 
-                Log::info('Invoice Response:', (array) $invoiceData); // Log response untuk debugging
-                $invoiceId = property_exists($invoiceData, 'id') ? $invoiceData->id : null;
+                Log::info('Invoice Response:', (array) $invoiceData);
+                $paymentId = property_exists($invoiceData, 'id') ? $invoiceData->id : null;
             }
 
             return response()->json([
                 'message' => 'Form submitted successfully',
-                'invoice_link' => $invoiceLink ?? null,
-                'id_payment' => $paymentId ?? $invoiceId
+                'invoice_link' => $invoiceLink,
+                'id_payment' => $paymentId
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => 'An error occurred', 'message' => $e->getMessage()], 500);
         }
     }
+
 
     public function saveStudentParent(Request $request)
     {
@@ -785,6 +777,7 @@ class HandleSubmitController extends Controller
                         'jadwal' => $studentData['jadwal_kelas'],
                         'id_user_fthr' => $father->id,
                         'id_user_mthr' => $mother->id,
+                        'status' => 1,
                     ]);
                 }
             }
