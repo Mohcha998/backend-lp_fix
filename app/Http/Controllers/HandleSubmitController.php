@@ -706,7 +706,7 @@ class HandleSubmitController extends Controller
                 $invoiceLink = $invoiceResponse->getData()->checkout_link;
                 $invoiceData = $invoiceResponse->getData();
 
-                Log::info('Invoice Response:', (array) $invoiceData);
+                // Log::info('Invoice Response:', (array) $invoiceData);
                 $paymentId = property_exists($invoiceData, 'id') ? $invoiceData->id : null;
             }
 
@@ -738,7 +738,7 @@ class HandleSubmitController extends Controller
                 'students.*.student_id' => 'nullable|exists:students,id',
                 'students.*.student_full_name' => 'nullable|string|max:255',
                 'students.*.student_birthdate' => 'nullable|date',
-                'students.*.student_gender' => 'nullable|string|in:P,L',
+                'students.*.student_gender' => 'nullable|string|max:255',
                 'students.*.student_school' => 'nullable|string|max:255',
                 'students.*.student_phone' => 'nullable|string|max:15',
                 'students.*.student_email' => 'nullable|email|max:255',
@@ -806,8 +806,7 @@ class HandleSubmitController extends Controller
         $email = $request->input('email');
         $phone = $request->input('phone');
 
-        // Cari prospect parent berdasarkan email atau phone
-        $prospectParent = ProspectParent::where('email', $email)
+        $prospectParent = User::where('email', $email)
             ->orWhere('phone', $phone)
             ->first();
 
@@ -815,7 +814,6 @@ class HandleSubmitController extends Controller
             return response()->json(['exists' => false]);
         }
 
-        // Ambil user terkait prospect parent
         $user = User::where('parent_id', $prospectParent->id)->first();
 
         if (!$user) {
@@ -825,7 +823,6 @@ class HandleSubmitController extends Controller
             ]);
         }
 
-        // Cek apakah user memiliki student dengan status = 1
         $hasActiveStudents = Student::where('user_id', $user->id)
             ->where('status', 1)
             ->exists();
@@ -842,16 +839,30 @@ class HandleSubmitController extends Controller
 
         if ($payment) {
             if ($payment->status_pembayaran == 0) {
+                $parentData = ProspectParent::join('programs', 'prospect_parents.program_id', '=', 'programs.id')
+                    ->join('branches', 'prospect_parents.branch_id', '=', 'branches.id')
+                    ->where('prospect_parents.id', $prospectParent->id)
+                    ->select('prospect_parents.*', 'programs.name as program_name', 'branches.name as branch_name')
+                    ->first();
+
                 return response()->json([
                     'exists' => true,
                     'step' => 2,
-                    'message' => 'Pembayaran belum selesai. Lanjut ke Step 3.'
+                    'message' => 'Pembayaran belum selesai. Lanjut ke Step 3.',
+                    'parent_data' => $parentData
                 ]);
             } elseif ($payment->status_pembayaran == 1) {
+                $parentData = ProspectParent::join('programs', 'prospect_parents.program_id', '=', 'programs.id')
+                    ->join('branches', 'prospect_parents.branch_id', '=', 'branches.id')
+                    ->where('prospect_parents.id', $prospectParent->id)
+                    ->select('prospect_parents.*', 'programs.name as program_name', 'branches.name as branch_name')
+                    ->first();
+
                 return response()->json([
                     'exists' => true,
                     'step' => 3,
-                    'message' => 'Pembayaran selesai. Lanjut ke Step 4.'
+                    'message' => 'Pembayaran selesai. Lanjut ke Step 4.',
+                    'parent_data' => $parentData
                 ]);
             }
         }

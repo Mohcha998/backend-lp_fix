@@ -12,6 +12,7 @@ use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\HandleSubmitController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BanksController;
 use App\Http\Controllers\CallApiController;
 use App\Http\Controllers\ParentsController;
 use App\Http\Controllers\CourseController;
@@ -94,6 +95,9 @@ Route::get('branch_rev', [BranchController::class, 'branch_revenue']);
 Route::get('branch_top', [BranchController::class, 'branch_revtop']);
 Route::get('branch_revm', [BranchController::class, 'branch_revenue_month']);
 Route::get('branch_topm', [BranchController::class, 'branch_revtop_month']);
+
+//Bank
+Route::get('bank', [BanksController::class, 'index']);
 
 Route::post('submit_sign', [HandleSubmitController::class, 'registration_submit']);
 Route::post('check-user', [HandleSubmitController::class, 'checkUser']);

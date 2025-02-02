@@ -38,4 +38,9 @@ class Payment_Sps extends Model
     {
         return $this->belongsTo(ProspectParent::class, 'id_parent');
     }
+
+    public function bank()
+    {
+        return $this->belongsTo(Bank::class, 'bank_id');
+    }
 }
